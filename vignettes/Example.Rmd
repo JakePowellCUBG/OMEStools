@@ -1,0 +1,96 @@
+---
+title: "Example"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Example}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+requireNamespace("tibble", quietly = TRUE)
+```
+
+```{r setup}
+library(OMEStools)
+```
+
+
+*In this example we show how to go from raw survey data to formatted excel outputs.*
+
+We need to load in some fake survey results.
+
+```{r load survey results}
+data = OMEStools::year7_pilot
+
+tibble::tibble(data)
+```
+
+We can see that the data is formatted such that each row corresponds to an individual's response to the survey where the initial columns are the individuals demographics followed by response to survey questions. Moreover, note that the column names of questions is of the format YY__ZZ, where YY is the theme and ZZ the question, where ' ' are replaced with '_' and '?' with 'XX' such as `Maths_in_Year_7__I_am_doing_well_in_maths`.
+
+Now we can create some excel workbooks with breakdown's of how questions were answered overall or by demographics. 
+
+### A single question with demographics
+
+Show the results for Maths in Year 7:I am doing well in maths across class, school and sex. 
+
+```{r}
+wb = OMEStools::to_sheet_single_survey_question(data = data,
+                                                question_column = 5,
+                                                demographic_columns = 2:4,
+                                                sheet = 'Table 1')
+openxlsx::saveWorkbook(wb, file = 'example1.xlsx')
+```
+
+If wanted you can use other survey questions as demographic columns to see the relationship between two questions.
+```{r}
+wb = OMEStools::to_sheet_single_survey_question(data = data,
+                                                question_column = 5,
+                                                demographic_columns = 6:8,
+                                                sheet = 'Table 2')
+openxlsx::saveWorkbook(wb, file = 'example2.xlsx')
+```
+
+***
+
+### Summary across a theme
+
+Choose a theme and create a summary table of survey responses in the theme. (Each theme must have the same allowable values, i.e. agree, disagree, etc)
+
+```{r}
+wb = OMEStools::to_sheet_theme_summary(data = data, theme = 'Maths in Year 7')
+openxlsx::saveWorkbook(wb, file = 'example3.xlsx')
+```
+
+***
+
+### An excel document across all questions
+
+We can use the above functions to make an excel workbook with multiple sheets (one for each question), and add hyperlinking to a table of contents sheet (using `add_TOC_sheet()`).
+
+```{r}
+question_columns = 5:15
+demographic_columns = 2:4
+wb <- openxlsx::createWorkbook()
+for(i in 1:length(question_columns)){
+  wb = to_sheet_single_survey_question(data = data,
+                                       question_column = question_columns[i],
+                                       demographic_columns = demographic_columns,
+                                       sheet = paste0('Table ',i),
+                                       wb = wb
+  )
+}
+
+# Add TOC sheet (with hyperlinks to individual tables)
+questions = names(data)[question_columns] |>
+  stringr::str_replace_all('__',': ') |>
+  stringr::str_replace_all('_',' ') |>
+  stringr::str_replace_all('XX','?') 
+wb = add_TOC_sheet(wb, link_text = questions)
+openxlsx::saveWorkbook(wb, file = 'all_questions_with_TOC.xlsx', overwrite = T)
+```
+***
